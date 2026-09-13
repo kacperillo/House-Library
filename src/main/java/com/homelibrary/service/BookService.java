@@ -11,9 +11,9 @@ import com.homelibrary.repository.BookRepository;
 import com.homelibrary.repository.SubcategoryRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-
 import java.util.List;
-
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -53,19 +53,15 @@ public class BookService {
     return new BookResponse(book);
   }
 
-  public BookResponsePage getAllBooks(
-      int pageNo, int pageSize, String sortParam, String sortDir, Integer categoryId) {
+  public BookResponsePage getAllBooks(int pageNo, int pageSize, String sortParam, String sortDir,
+      Integer categoryId, List<Integer> subcategoryIds) {
+    
     Sort sort = Sort.by(sortParam);
     sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name())
         ? sort.ascending()
         : sort.descending();
     Pageable pageable = PageRequest.of(pageNo, pageSize, sort);
-    Page<Book> bookPage;
-    if (categoryId != null) {
-      bookPage = bookRepository.findBySubcategoryCategoryId(categoryId, pageable);
-    } else {
-      bookPage = bookRepository.findAll(pageable);
-    }
+    Page<Book> bookPage = findBooksPage(categoryId, subcategoryIds, pageable);
     List<Book> books = bookPage.getContent();
       return BookResponsePage.builder()
               .pageNo(pageNo)
@@ -104,6 +100,50 @@ public class BookService {
     return bookRepository.findById(bookId)
         .orElseThrow(() -> new HomeLibraryException(
             HttpStatus.NOT_FOUND, "Book with given ID does not exist"));
+  }
+
+  private Page<Book> findBooksPage(Integer categoryId, List<Integer> subcategoryIds, Pageable pageable) {
+    if (subcategoryIds != null && !subcategoryIds.isEmpty()) {
+      List<Integer> ids = subcategoryIds.stream().distinct().toList();
+      validateSubcategoriesBelongToCategory(ids, categoryId);
+      return bookRepository.findBySubcategoryIdIn(ids, pageable);
+    }
+    if (categoryId != null) {
+      return bookRepository.findBySubcategoryCategoryId(categoryId, pageable);
+    }
+    return bookRepository.findAll(pageable);
+  }
+
+
+  private void validateSubcategoriesBelongToCategory(List<Integer> subcategoryIds, Integer categoryId) {
+    if (categoryId == null) {
+      throw new HomeLibraryException(
+          HttpStatus.BAD_REQUEST, "Filtering by subcategories requires a categoryId");
+    }
+
+    List<Subcategory> subcategories = subcategoryRepository.findAllById(subcategoryIds);
+
+    if (subcategories.size() != subcategoryIds.size()) {
+      Set<Integer> foundIds = subcategories.stream()
+          .map(Subcategory::getId)
+          .collect(Collectors.toSet());
+      throw new HomeLibraryException(HttpStatus.NOT_FOUND,
+          "Subcategories with given IDs do not exist: " + join(
+              subcategoryIds.stream().filter(id -> !foundIds.contains(id)).toList()));
+    }
+
+    List<Integer> foreignIds = subcategories.stream()
+        .filter(subcategory -> !subcategory.getCategory().getId().equals(categoryId))
+        .map(Subcategory::getId)
+        .toList();
+    if (!foreignIds.isEmpty()) {
+      throw new HomeLibraryException(HttpStatus.BAD_REQUEST,
+          "Subcategories do not belong to category " + categoryId + ": " + join(foreignIds));
+    }
+  }
+
+  private String join(List<Integer> ids) {
+    return ids.stream().map(String::valueOf).collect(Collectors.joining(", "));
   }
 
   private Subcategory findSubcategory(Integer subcategoryId) {

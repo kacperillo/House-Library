@@ -10,8 +10,6 @@ import DeleteConfirmModal from './components/DeleteConfirmModal.jsx';
 export default function App() {
   const [categories, setCategories] = useState([]);
 
-  // Filtr kategorii idzie do API, filtr subkategorii działa lokalnie
-  // na już pobranej stronie wyników.
   const [categoryId, setCategoryId] = useState('');
   const [selectedSubcategoryIds, setSelectedSubcategoryIds] = useState([]);
 
@@ -42,10 +40,9 @@ export default function App() {
         sortParam,
         sortDir,
         categoryId,
+        subcategoryIds: selectedSubcategoryIds,
       });
       setPage(result);
-      // Po usunięciu ostatniej książki na stronie numer strony może wyjść
-      // poza zakres — wtedy cofamy się na ostatnią istniejącą.
       if (result.totalPages > 0 && pageNo > result.totalPages - 1) {
         setPageNo(result.totalPages - 1);
       }
@@ -55,7 +52,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [pageNo, pageSize, sortParam, sortDir, categoryId]);
+  }, [pageNo, pageSize, sortParam, sortDir, categoryId, selectedSubcategoryIds]);
 
   useEffect(() => {
     loadBooks();
@@ -67,14 +64,15 @@ export default function App() {
   }, [categories, categoryId]);
 
   const books = page ? page.content : [];
-  const visibleBooks =
-    selectedSubcategoryIds.length === 0
-      ? books
-      : books.filter((b) => selectedSubcategoryIds.includes(b.subcategoryId));
 
   function handleCategoryChange(value) {
     setCategoryId(value);
-    setSelectedSubcategoryIds([]); // subkategorie należą do poprzedniej kategorii
+    setSelectedSubcategoryIds([]);
+    setPageNo(0);
+  }
+
+  function handleSubcategoriesChange(value) {
+    setSelectedSubcategoryIds(value);
     setPageNo(0);
   }
 
@@ -112,7 +110,7 @@ export default function App() {
         onCategoryChange={handleCategoryChange}
         subcategories={subcategories}
         selectedSubcategoryIds={selectedSubcategoryIds}
-        onSubcategoriesChange={setSelectedSubcategoryIds}
+        onSubcategoriesChange={handleSubcategoriesChange}
         sortParam={sortParam}
         onSortParamChange={handleSortParamChange}
         sortDir={sortDir}
@@ -122,13 +120,13 @@ export default function App() {
 
       {loading && <div className="loading">Wczytywanie…</div>}
 
-      {!loading && visibleBooks.length === 0 && (
+      {!loading && books.length === 0 && (
         <div className="empty">Brak książek do wyświetlenia.</div>
       )}
 
-      {!loading && visibleBooks.length > 0 && (
+      {!loading && books.length > 0 && (
         <BooksTable
-          books={visibleBooks}
+          books={books}
           ordinalOffset={pageNo * pageSize}
           onEdit={setBookToEdit}
           onDelete={setBookToDelete}

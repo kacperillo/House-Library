@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 
 @RestController
@@ -31,8 +32,10 @@ public class BookController {
           @RequestParam(required = false, defaultValue = "20") int pageSize,
           @RequestParam(required = false, defaultValue = "title") String sortParam,
           @RequestParam(required = false, defaultValue = "asc") String sortDir,
-          @RequestParam(required = false) Integer categoryId) {
-    BookResponsePage bookResponsePage = bookService.getAllBooks(pageNo, pageSize, sortParam, sortDir, categoryId);
+          @RequestParam(required = false) Integer categoryId,
+          @RequestParam(required = false) List<Integer> subcategoryIds) {
+    BookResponsePage bookResponsePage =
+            bookService.getAllBooks(pageNo, pageSize, sortParam, sortDir, categoryId, subcategoryIds);
     return ResponseEntity.ok().body(bookResponsePage);
   }
 

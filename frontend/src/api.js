@@ -39,9 +39,10 @@ export function getCategories() {
   return request('/categories');
 }
 
-export function getBooks({ pageNo, pageSize, sortParam, sortDir, categoryId }) {
+export function getBooks({ pageNo, pageSize, sortParam, sortDir, categoryId, subcategoryIds }) {
   const params = new URLSearchParams({ pageNo, pageSize, sortParam, sortDir });
   if (categoryId !== '' && categoryId != null) params.set('categoryId', categoryId);
+  (subcategoryIds || []).forEach((id) => params.append('subcategoryIds', id));
   return request(`/books?${params.toString()}`);
 }
 
